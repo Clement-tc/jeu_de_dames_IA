@@ -21,9 +21,18 @@ class CheckerModel:
 		# MonteCarlo
 		# Neural Network
 
-	def __init__(self, checker_grid=None):
+	def __init__(self, checker_grid=None,custom_ROWS=ROWS,custom_filled_row=FILLED_ROWS):
+		global ROWS
+		global COLS
+		global FILLED_ROWS
+		ROWS=custom_ROWS
+		COLS=custom_ROWS
+		FILLED_ROWS=custom_filled_row
+
+
 		if checker_grid is None:
 			self.create_grid()
+
 		else:
 			self.checker_grid = checker_grid
 		self.turn = 1 # 1 : pour le joueur 1 et -1 pour le joueur 2
@@ -51,6 +60,7 @@ class CheckerModel:
 
 					elif row > ROWS - FILLED_ROWS - 1: # joueur 2
 						self.checker_grid[row][col] = Piece(row, col, player=1)
+
 
 
 
@@ -117,11 +127,11 @@ class CheckerModel:
 
 
 	def get_possible_moves(self):
-
 		dict_of_all_moves = dict()
 
 		for row, col in product(range(0, ROWS), range(0, COLS)):
 			if type(self.checker_grid[row][col]) == Piece:
+
 				current_piece = self.checker_grid[row][col]
 
 				if current_piece.player == self.turn:
@@ -239,18 +249,22 @@ class CheckerModel:
 
 
 
-	def ia_move(self, model):
+	def ia_move(self, model, depth_minimax = 3, to_maximise = False ,number_of_games=20,depth=10):
 		if model == "random":
 			selected_piece_position, move_position = self.random_model_predict()
 			self.move_piece(selected_piece_position, move_position)
 			
 		elif model == "minimax":
-			best_selected_piece_position, best_move_position = self.minimax_model_predict(depth=5)
+			best_selected_piece_position, best_move_position = self.minimax_model_predict(depth_minimax, to_maximise=self.turn==1)
 			self.move_piece(best_selected_piece_position, best_move_position)
 
+		elif model=="monte_carlo":
+			best_selected_piece_position, best_move_position = self.monte_carlo_model_predict(number_of_games=number_of_games,depth=depth,agent_turn=-self.turn)
+			self.move_piece(best_selected_piece_position, best_move_position)
 
-	def minimax_model_predict(self, depth):
-		best_score = float("inf")
+	def monte_carlo_model_predict(self,number_of_games,depth,agent_turn):
+
+		best_score = best_score = float("inf") if agent_turn==1 else -float("inf")
 		best_selected_piece_position, best_move_position = None, None
 
 		possible_actions = []
@@ -262,18 +276,162 @@ class CheckerModel:
 
 			self.move_piece(*possible_action)
 			
-			score = self.minimax(robot_turn=False, depth=depth)
-			if score <= best_score:
+			score = self.monte_carlo(number_of_games=number_of_games,depth=depth,agent_turn=agent_turn)
+			if agent_turn==1 and score <= best_score:
+				best_score = score 
+				best_selected_piece_position, best_move_position = possible_action
+			if agent_turn==-1 and score >= best_score:
+
 				best_score = score 
 				best_selected_piece_position, best_move_position = possible_action
 
 			self.undo_last_action()
 
 		return best_selected_piece_position, best_move_position
+	
+	def monte_carlo(self,number_of_games,depth,agent_turn):
+		sum_score=0
+		for number_of_games_index in range(number_of_games):
+			winedown=depth
+			for depth_index in range(depth):
+				game_state = self.game_score()
+				if(game_state==0 or game_state==10.5 or game_state==-10.5):
+					winedown=depth_index
+					break
+				selected_piece_position, move_position = self.random_model_predict()
+				self.move_piece(selected_piece_position, move_position)
+
+			sum_score+=self.game_score()
+			for depth_index in range(winedown):
+				self.undo_last_action()
+
+		return sum_score
+
+	def mini_carlos_model_predict(self, depth_minimax, to_maximise):
+		best_score = -float("inf") if to_maximise else float("inf")
+		best_selected_piece_position, best_move_position = None, None
+
+		possible_actions = []
+		for selected_piece_position, moves in self.dict_of_possible_moves.items():
+			for move in moves:
+				possible_actions.append((selected_piece_position, move.get_final_position()))
+
+		for possible_action in possible_actions:
+
+			self.move_piece(*possible_action)
+			
+			score = self.minimax(agent_turn=self.turn==-1, depth = depth_minimax, to_maximise = to_maximise)
+			if to_maximise:
+				if score >= best_score:
+					best_score = score
+					best_selected_piece_position, best_move_position = possible_action
+			else:
+				if score <= best_score:
+					best_score = score 
+					best_selected_piece_position, best_move_position = possible_action
+
+			self.undo_last_action()
+
+		return best_selected_piece_position, best_move_position
+
+		return best_selected_piece_position, best_move_position
+	
+	def mini_carlos(self, agent_turn, depth, to_maximise, alpha=-float('inf'), beta=float('inf')):
+		game_state = self.check_game_state()
+		if game_state == "draw_game":
+			return 0
+	
+		elif game_state == 1:
+			return float("inf")
+
+		elif game_state == -1:
+			return -float("inf")
+
+		elif game_state == "game_in_progress":
+			if depth == 0: 
+				return monte_carlo(self,10,5,agent_turn)
+
+			else :
+				if to_maximise:
+					best_score = -float("inf") if robot_turn else float("inf")
+				else:
+					best_score = float("inf") if robot_turn else - float("inf")
+
+				possible_actions = []
+				for selected_piece_position, moves in self.dict_of_possible_moves.items():
+					for move in moves:
+						possible_actions.append((selected_piece_position, move.get_final_position()))
 
 
+				for possible_action in possible_actions:
+					self.move_piece(*possible_action)
+					score = self.minimax(robot_turn=not robot_turn, depth=depth-1, to_maximise=to_maximise, alpha=alpha, beta=beta)
+					if to_maximise:
+						best_score = max(score, best_score) if robot_turn else min(score, best_score)
+					else:
+						best_score = min(score, best_score) if robot_turn else max(score, best_score)
 
-	def minimax(self, robot_turn, depth, alpha=float('inf'), beta=-float('inf')):
+					self.undo_last_action()
+					
+					if to_maximise and robot_turn or not (to_maximise or robot_turn):
+							if best_score >= beta:
+								break
+							alpha = max(beta, best_score)
+
+					elif to_maximise and not robot_turn or not to_maximise and robot_turn:
+							if alpha >= best_score:
+								break
+							beta = min(alpha, best_score)
+
+				return best_score
+
+		return sum_score
+	def game_score(self):
+		game_state = self.check_game_state()
+		if game_state == "draw_game":
+			return 0
+	
+		elif game_state == 1:
+			return 10.5 #replace by the number of pieces of a player depending on the map size
+
+		elif game_state == -1:
+			return -10.5
+
+		elif game_state == "game_in_progress":
+			return CheckerModel.evaluate_grid(self.checker_grid)
+
+		
+
+
+	def minimax_model_predict(self, depth_minimax, to_maximise):
+		best_score = -float("inf") if to_maximise else float("inf")
+		best_selected_piece_position, best_move_position = None, None
+
+		possible_actions = []
+		for selected_piece_position, moves in self.dict_of_possible_moves.items():
+			for move in moves:
+				possible_actions.append((selected_piece_position, move.get_final_position()))
+
+		for possible_action in possible_actions:
+
+			self.move_piece(*possible_action)
+			
+			score = self.minimax(robot_turn=self.turn==-1, depth = depth_minimax, to_maximise = to_maximise)
+			if to_maximise:
+				if score >= best_score:
+					best_score = score
+					best_selected_piece_position, best_move_position = possible_action
+			else:
+				if score <= best_score:
+					best_score = score 
+					best_selected_piece_position, best_move_position = possible_action
+
+			self.undo_last_action()
+
+		return best_selected_piece_position, best_move_position
+	
+
+	def minimax(self, robot_turn, depth, to_maximise, alpha=-float('inf'), beta=float('inf')):
 		game_state = self.check_game_state()
 		if game_state == "draw_game":
 			return 0
@@ -289,7 +447,10 @@ class CheckerModel:
 				return CheckerModel.evaluate_grid(self.checker_grid)
 
 			else :
-				best_score = float("inf") if robot_turn else - float("inf")
+				if to_maximise:
+					best_score = -float("inf") if robot_turn else float("inf")
+				else:
+					best_score = float("inf") if robot_turn else - float("inf")
 
 				possible_actions = []
 				for selected_piece_position, moves in self.dict_of_possible_moves.items():
@@ -299,21 +460,25 @@ class CheckerModel:
 
 				for possible_action in possible_actions:
 					self.move_piece(*possible_action)
-					score = self.minimax(robot_turn=not robot_turn, depth=depth-1, alpha=alpha, beta=beta)
-					best_score = min(score, best_score) if robot_turn else max(score, best_score)
-					if robot_turn:
-						beta = min(beta, best_score)
+					score = self.minimax(robot_turn=not robot_turn, depth=depth-1, to_maximise=to_maximise, alpha=alpha, beta=beta)
+					if to_maximise:
+						best_score = max(score, best_score) if robot_turn else min(score, best_score)
 					else:
-						alpha = max(alpha, best_score)
+						best_score = min(score, best_score) if robot_turn else max(score, best_score)
 
 					self.undo_last_action()
 					
-					if beta < alpha:
-						break
+					if to_maximise and robot_turn or not (to_maximise or robot_turn):
+							if best_score >= beta:
+								break
+							alpha = max(beta, best_score)
 
+					elif to_maximise and not robot_turn or not to_maximise and robot_turn:
+							if alpha >= best_score:
+								break
+							beta = min(alpha, best_score)
 
 				return best_score
-
 
 
 	def random_model_predict(self):
