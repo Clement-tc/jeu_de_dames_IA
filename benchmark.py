@@ -14,7 +14,7 @@ for _ in tqdm.tqdm(range(number_games_to_test)):
 	checker_model_object = CheckerModel()
 
 	while True:
-		checker_model_object.ia_move(model="monte_carlo",number_of_games=25,depth=10)
+		checker_model_object.ia_move(model="random",number_of_games=25,depth=10)
 		game_state = checker_model_object.check_game_state()
 		if game_state == "draw_game":
 			break
@@ -24,7 +24,7 @@ for _ in tqdm.tqdm(range(number_games_to_test)):
 			break
 
 
-		checker_model_object.ia_move(model="minimax",depth_minimax=4)
+		checker_model_object.ia_move(model="minimax",depth_minimax=3)
 		game_state = checker_model_object.check_game_state()
 		if game_state == "draw_game":
 			break
